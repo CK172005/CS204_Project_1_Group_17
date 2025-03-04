@@ -3,6 +3,7 @@
 #include <sstream>
 #include <unordered_map>
 #include <vector>
+#include <iomanip>
 #include <bitset>
 using namespace std;
 
@@ -64,10 +65,14 @@ void assemble(string inputFile, string outputFile) {
             if (funct3Map.find(inst) != funct3Map.end()) {
                 if (funct7Map.find(inst) != funct7Map.end()) {
                     iss >> rd >> rs1 >> rs2;
-                    outFile << "0x" << hex << address << " 0x" << bitset<32>(stoi(parseRFormat(inst, rd, rs1, rs2), nullptr, 2)).to_ulong() << " , " << line << endl;
+                    bitset<32> machineCode(parseRFormat(inst, rd, rs1, rs2));  
+                    outFile << "0x" << hex << address << " 0x" 
+                            << setw(8) << setfill('0') << stoul(machineCode.to_string(), nullptr, 2)
+                            << " , " << line << endl;
                 } else {
                     iss >> rd >> rs1 >> imm;
-                    outFile << "0x" << hex << address << " 0x" << bitset<32>(stoi(parseIFormat(inst, rd, rs1, imm), nullptr, 2)).to_ulong() << " , " << line << endl;
+                    bitset<32> machineCode(parseIFormat(inst, rd, rs1, imm));
+                    outFile << "0x" << hex << address << " 0x" << setw(8) << setfill('0') << stoul(machineCode.to_string(), nullptr, 2) << " , " << line << endl;
                 }
             }
         }

@@ -49,6 +49,35 @@ string parseIFormat(string inst, string rd, string rs1, int imm) {
            registerToBinary(rd) + opcodeMap[inst];
 }
 
+string formatBinaryInstruction(string opcode, string funct3, string funct7, string rd, string rs1, string rs2, string imm) {
+    stringstream ss;
+
+    // Print opcode, funct3, funct7, and register fields in binary format
+    ss << opcode << "-" << funct3 << "-";
+
+    // For R-format instructions (funct7 is present)
+    if (!funct7.empty()) {
+        ss << funct7 << "-";
+    } else {
+        ss << "NULL-";
+    }
+
+    // Register and immediate values
+    ss << rd << "-" << rs1 << "-";
+
+    if (!rs2.empty()) {
+        ss << rs2 << "-";
+    }
+
+    if (!imm.empty()) {
+        ss << imm;
+    } else {
+        ss << "NULL";
+    }
+
+    return ss.str();
+}
+
 void assemble(string inputFile, string outputFile) {
     ifstream inFile(inputFile);
     ofstream outFile(outputFile);
@@ -58,6 +87,7 @@ void assemble(string inputFile, string outputFile) {
     while (getline(inFile, line)) {
         istringstream iss(line);
         string inst, rd, rs1, rs2;
+        string formatedInstruction;
         int imm;
         iss >> inst;
 
@@ -65,14 +95,17 @@ void assemble(string inputFile, string outputFile) {
             if (funct3Map.find(inst) != funct3Map.end()) {
                 if (funct7Map.find(inst) != funct7Map.end()) {
                     iss >> rd >> rs1 >> rs2;
-                    bitset<32> machineCode(parseRFormat(inst, rd, rs1, rs2));  
+                    bitset<32> machineCode(parseRFormat(inst, rd, rs1, rs2)); 
+                    formatedInstruction = formatBinaryInstruction(opcodeMap[inst], funct3Map[inst], funct7Map[inst], registerToBinary(rd), registerToBinary(rs1), registerToBinary(rs2), "");
                     outFile << "0x" << hex << address << " 0x" 
                             << setw(8) << setfill('0') << stoul(machineCode.to_string(), nullptr, 2)
-                            << " , " << line << endl;
+                            << " , " << line << " # " << formatedInstruction << endl;
                 } else {
                     iss >> rd >> rs1 >> imm;
                     bitset<32> machineCode(parseIFormat(inst, rd, rs1, imm));
-                    outFile << "0x" << hex << address << " 0x" << setw(8) << setfill('0') << stoul(machineCode.to_string(), nullptr, 2) << " , " << line << endl;
+                    formatedInstruction = formatBinaryInstruction(opcodeMap[inst], funct3Map[inst], "", registerToBinary(rd), registerToBinary(rs1), "", bitset<12>(imm).to_string());
+                    outFile << "0x" << hex << address << " 0x" << setw(8) << setfill('0') << stoul(machineCode.to_string(), nullptr, 2) << " , " << line
+                    << " # " << formatedInstruction << endl;
                 }
             }
         }

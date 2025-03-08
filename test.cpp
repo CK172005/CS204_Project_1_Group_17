@@ -233,11 +233,12 @@ string formatBinaryInstruction(string opcode, string funct3, string funct7, stri
 }
 
 
-void firstPass(ifstream &inFile) {
+void firstPass(istringstream &inFile) {
     string line, label, directive;
     int address = 0;                // Instruction address (code segment)
     int dataAddress = 0x10000000;    // Data segment starts at 0x10000000
     bool inTextSegment = true;       // Flag to track whether we are in .text
+
 
     while (getline(inFile, line)) {
         istringstream iss(line);
@@ -322,10 +323,17 @@ void firstPass(ifstream &inFile) {
     }
 }
 
-void assemble(string inputFile, string outputFile) {
-    ifstream inFile(inputFile);
-    ofstream outFile(outputFile);
-    ifstream inFile2(inputFile);
+void assemble() {
+    string helper, inputCode;
+    while (getline(cin, helper) && !helper.empty()) {
+        inputCode += helper + "\n";
+    }
+    istringstream inFile(inputCode);
+    istringstream inFile2(inputCode);
+
+    // ifstream inFile(inputFile);
+    // ofstream cout(outputFile);
+    // ifstream inFile2(inputFile);
     firstPass(inFile2);
     string line;
     int address = 0;
@@ -366,7 +374,7 @@ void assemble(string inputFile, string outputFile) {
                         opcodeMap[inst], funct3Map[inst], funct7Map[inst], 
                         registerToBinary(rd), registerToBinary(rs1), registerToBinary(rs2), ""
                     );
-                    outFile << "0x" << hex << address << " 0x" 
+                    cout << "0x" << hex << address << " 0x" 
                             << setw(8) << setfill('0') << stoul(machineCode.to_string(), nullptr, 2)
                             << " , " << line << " # " << formatedInstruction << endl;
                 } 
@@ -395,7 +403,7 @@ void assemble(string inputFile, string outputFile) {
                             immediate.to_string()
                         );
         
-                        outFile << "0x" << hex << address << " 0x" 
+                        cout << "0x" << hex << address << " 0x" 
                                 << setw(8) << setfill('0') << stoul(machineCode.to_string(), nullptr, 2)
                                 << " , " << line << " # " << formatedInstruction << endl;
                     } 
@@ -419,7 +427,7 @@ void assemble(string inputFile, string outputFile) {
                             registerToBinary(rs1), registerToBinary(rs2), offset.to_string()
                         );
                     
-                        outFile << "0x" << hex << address << " 0x" 
+                        cout << "0x" << hex << address << " 0x" 
                                 << setw(8) << setfill('0') << stoul(machineCode.to_string(), nullptr, 2)
                                 << " , " << line << " # " << formatedInstruction << endl;
                     } 
@@ -470,7 +478,7 @@ void assemble(string inputFile, string outputFile) {
                             immediate.to_string()
                         );
         
-                        outFile << "0x" << hex << address << " 0x" 
+                        cout << "0x" << hex << address << " 0x" 
                                 << setw(8) << setfill('0') << stoul(machineCode.to_string(), nullptr, 2)
                                 << " , " << line << " # " << formatedInstruction << endl;
                     }
@@ -486,7 +494,7 @@ void assemble(string inputFile, string outputFile) {
                     opcodeMap[inst], "", "", registerToBinary(rd), "", "", immediate.to_string()
                 );
 
-                outFile << "0x" << hex << address << " 0x" 
+                cout << "0x" << hex << address << " 0x" 
                         << setw(8) << setfill('0') << stoul(machineCode.to_string(), nullptr, 2)
                         << " , " << line << " # " << formatedInstruction << endl;
             }
@@ -507,7 +515,7 @@ void assemble(string inputFile, string outputFile) {
                     opcodeMap[inst], "", "", registerToBinary(rd), "", "", (offset).to_string()
                 );
             
-                outFile << "0x" << hex << address << " 0x" 
+                cout << "0x" << hex << address << " 0x" 
                         << setw(8) << setfill('0') << stoul(machineCode.to_string(), nullptr, 2)
                         << " , " << line << " # " << formatedInstruction << endl;
             } 
@@ -515,19 +523,20 @@ void assemble(string inputFile, string outputFile) {
             address += 4;  // Move to next instruction
         }
     }
-    outFile << "0x" << hex << address << " 0xdeadbeef" << ", " << "ends" << endl;
+    cout << "0x" << hex << address << " 0xdeadbeef" << ", " << "ends" << endl;
     sortedDataSegment = vector<pair<long, long>>(dataSegment.begin(), dataSegment.end());
     sort(sortedDataSegment.begin(), sortedDataSegment.end());
     for (const auto& [key, value] : sortedDataSegment) {
-        outFile << "0x" << hex << key << " 0x" << setw(2) << setfill('0') << value << endl;
+        cout << "0x" << hex << key << " 0x" << setw(2) << setfill('0') << value << endl;
     }
 
-    inFile.close();
-    outFile.close();
+    // inFile.close();
+    // cout.close();
 }
 
 int main() {
-    assemble("/Users/mitul/Desktop/iit ropar/ComputerArchitecture-CS204/CS204_Project_1_Group_17/input.asm", "/Users/mitul/Desktop/iit ropar/ComputerArchitecture-CS204/CS204_Project_1_Group_17/output.mc");
-    cout << "Assembly translation complete. Check output.mc" << endl;
+    // assemble("/Users/mitul/Desktop/iit ropar/ComputerArchitecture-CS204/CS204_Project_1_Group_17/input.asm", "/Users/mitul/Desktop/iit ropar/ComputerArchitecture-CS204/CS204_Project_1_Group_17/output.mc");
+    assemble();
+    // cout << "Assembly translation complete. Check output.mc" << endl;
     return 0;
 }

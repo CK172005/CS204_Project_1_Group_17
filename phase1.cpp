@@ -1,15 +1,7 @@
-#include <iostream>
-#include <fstream>
-#include <sstream>
-#include <unordered_map>
-#include <unordered_set>
-#include <vector>
-#include <iomanip>
-#include <bitset>
-#include <algorithm>
+#include<bits/stdc++.h>
 using namespace std;
 
-// Define opcode, funct3, and funct7 mappings for RISC-V instructions
+
 unordered_map<string, string> opcodeMap = {
     {"add", "0110011"}, {"sub", "0110011"}, {"and", "0110011"}, {"or", "0110011"},
     {"sll", "0110011"}, {"slt", "0110011"}, {"sra", "0110011"}, {"srl", "0110011"},
@@ -81,29 +73,56 @@ bool isUJFormatInstruction(const string& inst) {
 }
 
 string registerToBinary(string reg) {
-    int regNum = stoi(reg.substr(1));
-    return bitset<5>(regNum).to_string();
+    try {
+        int regNum = stoi(reg.substr(1));
+        if (regNum < 0 || regNum > 31) {
+            cerr << "Error: Register Out of range" << endl;
+            exit(1);
+        }
+        return bitset<5>(regNum).to_string();
+    }
+    catch (const invalid_argument& e) {
+        cerr << "Error: Invalid register format!" << endl;
+        exit(1);
+    }
 }
 
 template <size_t N>
 bitset<N> parseImmediate(const std::string& imm) {
-    int value = 0; // Default value
+    int value = 0; 
 
-    if (imm.size() > 2 && imm[0] == '0') {
-        if (imm[1] == 'x' || imm[1] == 'X') {
-            // Hexadecimal (e.g., 0xA5)
-            value = stoi(imm.substr(2), nullptr, 16);
-        } else if (imm[1] == 'b' || imm[1] == 'B') {
-            // Binary (e.g., 0b1010)
-            value = stoi(imm.substr(2), nullptr, 2);
+    try{
+        if (imm.size() > 2 && imm[0] == '0') {
+            if (imm[1] == 'x' || imm[1] == 'X') {
+                // Hexadecimal
+                value = stoi(imm.substr(2), nullptr, 16);
+            } else if (imm[1] == 'b' || imm[1] == 'B') {
+                // Binary
+                value = stoi(imm.substr(2), nullptr, 2);
+            } else {
+                throw invalid_argument("Invalid immediate format!");
+            }
         } else {
-            throw invalid_argument("Invalid immediate format!");
+            value = stoi(imm);
         }
-    } else {
-        // Decimal (default)
-        value = stoi(imm);
+    }
+    catch (const invalid_argument& e) {
+        cerr << "Error: Invalid immediate format!" << endl;
+        exit(1);
     }
 
+    if (N == 12) {
+        if (value < -2048 || value > 2047) {
+            cerr << "Error: Immediate value out of range!" << endl;
+            exit(1);
+        }
+    }
+    if (N == 20) {
+        if (value < 0 || value > 1048575) {
+            cerr << "Error: Immediate value out of range!" << endl;
+            exit(1);
+        }
+    }
     return bitset<N>(value);
 }
 
@@ -124,9 +143,6 @@ string parseSFormat(string inst, string rs1, string rs2, bitset<12> imm_bin) {
     bitset<5> rs1_bin(registerToBinary(rs1));
     bitset<5> rs2_bin(registerToBinary(rs2));
 
-    // S-format: imm[11:5] | rs2 | rs1 | funct3 | imm[4:0] | opcode
-    // cout << imm_bin.to_string().substr(0, 7) << endl;
-    // cout << imm_bin.to_string().substr(7) << endl;
     string machineCode = imm_bin.to_string().substr(0, 7) +  
                          rs2_bin.to_string() +
                          rs1_bin.to_string() +
@@ -138,20 +154,19 @@ string parseSFormat(string inst, string rs1, string rs2, bitset<12> imm_bin) {
 }
 
 string parseSBFormat(string inst, string rs1, string rs2, bitset<13> offset) {
-    string opcode = opcodeMap[inst];  // SB-format opcode
-    string funct3 = funct3Map[inst];  // Lookup funct3
+    string opcode = opcodeMap[inst];  
+    string funct3 = funct3Map[inst];  
 
     bitset<5> rs1_bin(registerToBinary(rs1));
     bitset<5> rs2_bin(registerToBinary(rs2));
 
-    // SB-format: imm[12] | imm[10:5] | rs2 | rs1 | funct3 | imm[4:1] | imm[11] | opcode
-    string machineCode = offset.to_string().substr(0, 1) +    // imm[12]
-                         offset.to_string().substr(2, 6) +    // imm[10:5]
+    string machineCode = offset.to_string().substr(0, 1) +    
+                         offset.to_string().substr(2, 6) +    
                          rs2_bin.to_string() + 
                          rs1_bin.to_string() + 
                          funct3 +
-                         offset.to_string().substr(8, 4) +    // imm[4:1]
-                         offset.to_string().substr(1, 1) +    // imm[11]
+                         offset.to_string().substr(8, 4) +    
+                         offset.to_string().substr(1, 1) +    
                          opcode;
 
     return machineCode;
@@ -159,24 +174,24 @@ string parseSBFormat(string inst, string rs1, string rs2, bitset<13> offset) {
 
 
 string parseUFormat(string inst, string rd, bitset<20> imm_bin) {
-    string opcode = opcodeMap[inst];  // LUI = 0110111, AUIPC = 0010111
+    string opcode = opcodeMap[inst];  
     bitset<5> rd_bin(registerToBinary(rd));
 
-    // U-Format: imm[31:12] | rd | opcode
+    
     string machineCode = imm_bin.to_string() + rd_bin.to_string() + opcode;
 
     return machineCode;
 }
 
 string parseUJFormat(string inst, string rd, bitset<21> imm_bin) {
-    string opcode = opcodeMap[inst];  // Get the opcode for `jal`
+    string opcode = opcodeMap[inst];  
     bitset<5> rd_bin(registerToBinary(rd));
 
-    // UJ-format: imm[20] | imm[10:1] | imm[11] | imm[19:12] | rd | opcode
-    string machineCode = imm_bin.to_string().substr(0, 1) +    // imm[20] (MSB)
-                         imm_bin.to_string().substr(10, 10) +  // imm[10:1]
-                         imm_bin.to_string().substr(9, 1) +    // imm[11]
-                         imm_bin.to_string().substr(1, 8) +    // imm[19:12]
+    
+    string machineCode = imm_bin.to_string().substr(0, 1) +    
+                         imm_bin.to_string().substr(10, 10) +  
+                         imm_bin.to_string().substr(9, 1) +    
+                         imm_bin.to_string().substr(1, 8) +    
                          rd_bin.to_string() + 
                          opcode;
 
@@ -187,7 +202,6 @@ string parseUJFormat(string inst, string rd, bitset<21> imm_bin) {
 string formatBinaryInstruction(string opcode, string funct3, string funct7, string rd, string rs1, string rs2, string imm) {
     stringstream ss;
 
-    // Print opcode, funct3, funct7, and register fields in binary format
     ss << opcode << "-";
     if (!funct3.empty()) {
         ss << funct3 << "-";
@@ -195,7 +209,6 @@ string formatBinaryInstruction(string opcode, string funct3, string funct7, stri
         ss << "NULL-";
     }
 
-    // For R-format instructions (funct7 is present)
     if (!funct7.empty()) {
         ss << funct7 << "-";
     } else {
@@ -235,16 +248,23 @@ string formatBinaryInstruction(string opcode, string funct3, string funct7, stri
 
 void firstPass(ifstream &inFile) {
     string line, label, directive;
-    int address = 0;                // Instruction address (code segment)
-    int dataAddress = 0x10000000;    // Data segment starts at 0x10000000
-    bool inTextSegment = true;       // Flag to track whether we are in .text
+    int address = 0;                
+    int dataAddress = 0x10000000;    
+    bool inTextSegment = true;       
 
     while (getline(inFile, line)) {
+        size_t commentPos = line.find('#');
+        if (commentPos != string::npos) {
+            line = line.substr(0, commentPos);  
+        }
+
+        if (line.empty()) {
+            continue; 
+        }
         istringstream iss(line);
         string firstWord;
         iss >> firstWord;
 
-        // Detect segment change
         if (firstWord == ".text") {
             inTextSegment = true;
             continue;
@@ -253,7 +273,6 @@ void firstPass(ifstream &inFile) {
             continue;
         }
 
-        // Handle .text segment (Instructions & Labels)
         if (inTextSegment) {
             if (firstWord.back() == ':') {
                 label = firstWord.substr(0, firstWord.size() - 1);
@@ -267,7 +286,6 @@ void firstPass(ifstream &inFile) {
             }
         } 
         
-        // Handle .data segment (Directives)
         else {
             istringstream dataStream(line);
             string varName, directive, value;
@@ -281,7 +299,7 @@ void firstPass(ifstream &inFile) {
             } 
             else if (directive == ".half") {
                 while (dataStream >> value) {
-                    bitset<16> bits = parseImmediate<16>(value); // Convert to 16-bit binary
+                    bitset<16> bits = parseImmediate<16>(value); 
                     for (int i = 0; i < 2; ++i) {
                         dataSegment[dataAddress + i] = (bits.to_ulong() >> (8 * i)) & 0xFF;
                     }
@@ -290,7 +308,7 @@ void firstPass(ifstream &inFile) {
             } 
             else if (directive == ".word") {
                 while (dataStream >> value) {
-                    bitset<32> bits = parseImmediate<32>(value); // Convert to 32-bit binary
+                    bitset<32> bits = parseImmediate<32>(value); 
                     for (int i = 0; i < 4; ++i) {
                         dataSegment[dataAddress + i] = (bits.to_ulong() >> (8 * i)) & 0xFF;
                     }
@@ -299,7 +317,7 @@ void firstPass(ifstream &inFile) {
             } 
             else if (directive == ".dword") {
                 while (dataStream >> value) {
-                    bitset<64> bits = parseImmediate<64>(value); // Convert to 64-bit binary
+                    bitset<64> bits = parseImmediate<64>(value); 
                     for (int i = 0; i < 8; ++i) {
                         dataSegment[dataAddress + i] = (bits.to_ullong() >> (8 * i)) & 0xFF;
                     }
@@ -310,12 +328,12 @@ void firstPass(ifstream &inFile) {
                 string str;
                 getline(dataStream, str);
                 int size = str.size();
-                str = str.substr(2, size - 3); // Remove quotes
+                str = str.substr(2, size - 3); 
                 for (char c : str) {
                     dataSegment[dataAddress] = c;
                     dataAddress += 1;
                 }
-                dataSegment[dataAddress] = 0; // Null terminator
+                dataSegment[dataAddress] = 0; 
                 dataAddress += 1;
             }
         }
@@ -333,17 +351,26 @@ void assemble(string inputFile, string outputFile) {
     
     
     while (getline(inFile, line)) {
+
+        size_t commentPos = line.find('#');
+        if (commentPos != string::npos) {
+            line = line.substr(0, commentPos);  
+        }
+        if (line.empty()) {
+            continue;
+        }
+
         istringstream iss(line);
         istringstream iss2(line);
         string firstWord;
         iss2 >> firstWord;
-        // Detect segment change
+        
         if (firstWord == ".text") {
             inTextSegment = true;
-            continue;  // Skip this line
+            continue;  
         } else if (firstWord == ".data") {
             inTextSegment = false;
-            continue;  // Skip this line
+            continue;  
         }
         if (inTextSegment == false) {
             continue;
@@ -353,6 +380,9 @@ void assemble(string inputFile, string outputFile) {
         string offsetOrLabel;
         string imm;
         iss >> inst;
+        if(inst.empty()){
+            continue;
+        }
         if (inst.back() == ':') {
             iss >> inst;
         }
@@ -380,8 +410,8 @@ void assemble(string inputFile, string outputFile) {
                             iss >> rs2 >> immWithReg;
                             
                             size_t pos = immWithReg.find('(');
-                            imm = immWithReg.substr(0, pos);  // Extract immediate
-                            rs1 = immWithReg.substr(pos + 1, immWithReg.size() - pos - 2);  // Extract rs1 (remove brackets)
+                            imm = immWithReg.substr(0, pos);  
+                            rs1 = immWithReg.substr(pos + 1, immWithReg.size() - pos - 2); 
                         } else {
                             // Parsing "sw rs2 imm rs1" format
                             iss >> rs2 >> imm >> rs1;
@@ -405,12 +435,12 @@ void assemble(string inputFile, string outputFile) {
                         bitset<13> offset;
                     
                         if (isdigit(offsetOrLabel[0]) || offsetOrLabel[0] == '-' || offsetOrLabel[0] == '+') {
-                            offset = parseImmediate<13>(offsetOrLabel);  // Convert directly if it's a number
+                            offset = parseImmediate<13>(offsetOrLabel);  
                         } else {
-                            offset = bitset<13>(computeOffset(offsetOrLabel, address));  // Convert label to PC-relative offset
+                            offset = bitset<13>(computeOffset(offsetOrLabel, address));  
                         }
                     
-                        offset &= ~bitset<13>(3);  // Mask the lower 2 bits (branches must be aligned)
+                        offset &= ~bitset<13>(3);  
                         
                         bitset<32> machineCode(parseSBFormat(inst, rs1, rs2, offset));
                     
@@ -433,12 +463,12 @@ void assemble(string inputFile, string outputFile) {
                             if (immWithReg.find('(') != string::npos) {
                                 // Handling "lw rd, imm(rs1)" format
                                 size_t pos = immWithReg.find('(');
-                                imm = immWithReg.substr(0, pos);  // Extract immediate
-                                rs1 = immWithReg.substr(pos + 1, immWithReg.size() - pos - 2);  // Extract rs1 (remove brackets)
+                                imm = immWithReg.substr(0, pos); 
+                                rs1 = immWithReg.substr(pos + 1, immWithReg.size() - pos - 2); 
                             } else {
                                 // Handling "lw rd imm rs1" format
-                                imm = immWithReg;  // immWithReg contains imm
-                                iss >> rs1;        // Read rs1 separately
+                                imm = immWithReg;
+                                iss >> rs1;      
                             }
                         }
                         else if (inst == "jalr") {
@@ -447,18 +477,18 @@ void assemble(string inputFile, string outputFile) {
                             iss >> rd >> immWithReg;
                         
                             if (immWithReg.find('(') != string::npos) {
-                                // Handling "jalr rd, imm(rs1)" format
+
                                 size_t pos = immWithReg.find('(');
-                                imm = immWithReg.substr(0, pos);  // Extract immediate
-                                rs1 = immWithReg.substr(pos + 1, immWithReg.size() - pos - 2);  // Extract rs1 (remove brackets)
+                                imm = immWithReg.substr(0, pos);  
+                                rs1 = immWithReg.substr(pos + 1, immWithReg.size() - pos - 2);  
                             } else {
-                                // Handling "jalr rd, rs1, imm" format
-                                rs1 = immWithReg;  // immWithReg contains rs1
-                                iss >> imm;        // Read imm separately
+
+                                rs1 = immWithReg;  
+                                iss >> imm;        
                             }
                         }
                         else {
-                            // Standard I-Type format: inst rd, rs1, imm
+
                             iss >> rd >> rs1 >> imm;
                         }
                         bitset<12> immediate = (parseImmediate<12>(imm));
@@ -477,7 +507,7 @@ void assemble(string inputFile, string outputFile) {
                 }
             }
             else if (isUFormatInstruction(inst)) {  
-                // U-Type instruction
+
                 iss >> rd >> imm;
                 bitset<20> immediate = (parseImmediate<20>(imm));
                 bitset<32> machineCode(parseUFormat(inst, rd, immediate));
@@ -491,16 +521,16 @@ void assemble(string inputFile, string outputFile) {
                         << " , " << line << " # " << formatedInstruction << endl;
             }
             else if (isUJFormatInstruction(inst)) {  
-                // UJ-Type instruction (JAL)
+
                 iss >> rd >> offsetOrLabel;
                 bitset<21> offset;
                 if (isdigit(offsetOrLabel[0]) || offsetOrLabel[0] == '-' || offsetOrLabel[0] == '+') {
-                    offset = parseImmediate<21>(offsetOrLabel);  // Convert directly if it's a number
+                    offset = parseImmediate<21>(offsetOrLabel);  
                 } else {
-                    offset = bitset<21>(computeOffset(offsetOrLabel, address));  // Convert label to PC-relative offset
+                    offset = bitset<21>(computeOffset(offsetOrLabel, address));  
                 }
 
-                offset &= ~bitset<21>(3);  // Mask the lower 2 bits
+                offset &= ~bitset<21>(3);  
                 bitset<32> machineCode(parseUJFormat(inst, rd, offset));
             
                 formatedInstruction = formatBinaryInstruction(
@@ -510,15 +540,20 @@ void assemble(string inputFile, string outputFile) {
                 outFile << "0x" << hex << address << " 0x" 
                         << setw(8) << setfill('0') << stoul(machineCode.to_string(), nullptr, 2)
                         << " , " << line << " # " << formatedInstruction << endl;
-            } 
+            }
             
-            address += 4;  // Move to next instruction
+            address += 4;  
+        }
+        else if(inst.back() != ':') {
+            cout << "Invalid instruction: " << inst << endl;
+            exit(1);
+            break;
         }
     }
     outFile << "0x" << hex << address << " 0xdeadbeef" << ", " << "ends" << endl;
     sortedDataSegment = vector<pair<long, long>>(dataSegment.begin(), dataSegment.end());
     sort(sortedDataSegment.begin(), sortedDataSegment.end());
-    for (const auto& [key, value] : sortedDataSegment) {
+    for (const auto& [key,value] : sortedDataSegment) {
         outFile << "0x" << hex << key << " 0x" << setw(2) << setfill('0') << value << endl;
     }
 
@@ -527,7 +562,7 @@ void assemble(string inputFile, string outputFile) {
 }
 
 int main() {
-    assemble("/Users/mitul/Desktop/iit ropar/ComputerArchitecture-CS204/CS204_Project_1_Group_17/input.asm", "/Users/mitul/Desktop/iit ropar/ComputerArchitecture-CS204/CS204_Project_1_Group_17/output.mc");
+    assemble("input.asm", "output.mc");
     cout << "Assembly translation complete. Check output.mc" << endl;
     return 0;
 }
